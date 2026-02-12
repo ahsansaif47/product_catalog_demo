@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  spanner-emulator:
+    image: gcr.io/cloud-spanner-emulator/emulator:latest
+    ports:
+      - "9010:9010"
+      - "9020:9020"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9020"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Spanner emulator tools for creating instances and databases
+  spanner-cli:
+    image: gcr.io/cloud-spanner-emulator/emulator:latest
+    depends_on:
+      spanner-emulator:
+        condition: service_healthy
+    environment:
+      - SPANNER_EMULATOR_HOST=spanner-emulator:9010
+      - SPANNER_PROJECT=test-project
+      - SPANNER_INSTANCE=test-instance
+    command: >
+      sh -c "sleep 2 && gcloud spanner instances create test-instance --config=emulator-config --description='Test instance' --nodes=1"
+    restart: "no"
