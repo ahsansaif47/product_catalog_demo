@@ -3,10 +3,12 @@ package deactivate_product
 import (
 	"context"
 	"fmt"
+	"time"
 
-	"github.com/your-username/commitplan"
-	"product-catalog-service/internal/app/product/create_product"
+	"cloud.google.com/go/spanner"
+	"product-catalog-service/internal/app/product/contracts"
 	"product-catalog-service/internal/app/product/domain"
+	"product-catalog-service/internal/pkg/commitplan"
 )
 
 // ProductReader defines the interface for reading products
@@ -16,12 +18,27 @@ type ProductReader interface {
 
 // ProductWriter defines the interface for writing products
 type ProductWriter interface {
-	UpdateMut(product *domain.Product) *commitplan.Mutation
+	UpdateMut(product *domain.Product) *spanner.Mutation
+}
+
+// OutboxRepository defines the repository interface for outbox events
+type OutboxRepository interface {
+	InsertMut(event contracts.OutboxEvent) *spanner.Mutation
+}
+
+// Committer applies commit plans
+type Committer interface {
+	Apply(ctx context.Context, plan *commitplan.Plan) error
+}
+
+// Clock provides time abstraction
+type Clock interface {
+	Now() time.Time
 }
 
 // EventEnricher enriches domain events for the outbox
 type EventEnricher interface {
-	EnrichEvent(event domain.DomainEvent) create_product.OutboxEvent
+	EnrichEvent(event domain.DomainEvent) contracts.OutboxEvent
 }
 
 // Request represents the deactivate product request
@@ -36,9 +53,9 @@ type Response struct{}
 type Interactor struct {
 	reader    ProductReader
 	writer    ProductWriter
-	outboxRepo create_product.OutboxRepository
-	committer create_product.Committer
-	clock     create_product.Clock
+	outboxRepo OutboxRepository
+	committer Committer
+	clock     Clock
 	enricher  EventEnricher
 }
 
@@ -46,9 +63,9 @@ type Interactor struct {
 func NewInteractor(
 	reader ProductReader,
 	writer ProductWriter,
-	outboxRepo create_product.OutboxRepository,
-	committer create_product.Committer,
-	clock create_product.Clock,
+	outboxRepo OutboxRepository,
+	committer Committer,
+	clock Clock,
 	enricher EventEnricher,
 ) *Interactor {
 	return &Interactor{

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"google.golang.org/grpc/codes"
 	"product-catalog-service/internal/app/product/contracts"
 	"product-catalog-service/internal/models/m_product"
 )
@@ -49,10 +50,11 @@ func (r *ProductReadModel) GetProduct(ctx context.Context, productID string) (*c
 		},
 	)
 
-	if err == spanner.ErrRowNotFound {
-		return nil, fmt.Errorf("product not found: %s", productID)
-	}
 	if err != nil {
+		// Check for not found error
+		if spanner.ErrCode(err) == codes.NotFound {
+			return nil, fmt.Errorf("product not found: %s", productID)
+		}
 		return nil, fmt.Errorf("failed to read product: %w", err)
 	}
 
@@ -164,14 +166,13 @@ func (r *ProductReadModel) ListProducts(ctx context.Context, filter contracts.Li
 	defer iter.Stop()
 
 	var products []*contracts.ProductDTO
-	var row *spanner.Row
 
 	for {
 		row, err := iter.Next()
-		if err == iteratorDone {
-			break
-		}
 		if err != nil {
+			if spanner.ErrCode(err) == codes.NotFound {
+				break
+			}
 			return nil, fmt.Errorf("failed to iterate products: %w", err)
 		}
 

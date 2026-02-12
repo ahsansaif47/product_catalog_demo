@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"context"
-	"product-catalog-service/internal/app/product/domain"
 )
 
 // ProductReadModel defines the interface for product queries

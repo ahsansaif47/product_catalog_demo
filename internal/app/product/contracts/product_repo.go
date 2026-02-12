@@ -1,9 +1,8 @@
 package contracts
 
 import (
-	"product-catalog-service/internal/app/product/domain"
-
 	"cloud.google.com/go/spanner"
+	"product-catalog-service/internal/app/product/domain"
 )
 
 // ProductRepository defines the interface for product persistence

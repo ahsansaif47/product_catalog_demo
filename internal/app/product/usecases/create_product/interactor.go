@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"time"
 
+	"cloud.google.com/go/spanner"
 	"github.com/google/uuid"
-	"github.com/your-username/commitplan"
+	"product-catalog-service/internal/app/product/contracts"
 	"product-catalog-service/internal/app/product/domain"
+	"product-catalog-service/internal/pkg/commitplan"
 )
 
 // Clock provides time abstraction
@@ -22,20 +24,12 @@ type Committer interface {
 
 // ProductRepository defines the repository interface for products
 type ProductRepository interface {
-	InsertMut(product *domain.Product) *commitplan.Mutation
+	InsertMut(product *domain.Product) *spanner.Mutation
 }
 
 // OutboxRepository defines the repository interface for outbox events
 type OutboxRepository interface {
-	InsertMut(event OutboxEvent) *commitplan.Mutation
-}
-
-// OutboxEvent represents an enriched domain event ready for persistence
-type OutboxEvent struct {
-	EventID     string
-	EventType   string
-	AggregateID string
-	Payload     map[string]interface{}
+	InsertMut(event contracts.OutboxEvent) *spanner.Mutation
 }
 
 // Request represents the create product request
@@ -133,7 +127,7 @@ func (it *Interactor) Execute(ctx context.Context, req Request) (*Response, erro
 }
 
 // enrichEvent enriches a domain event with metadata
-func (it *Interactor) enrichEvent(event domain.DomainEvent) OutboxEvent {
+func (it *Interactor) enrichEvent(event domain.DomainEvent) contracts.OutboxEvent {
 	payload := make(map[string]interface{})
 
 	// Add common fields
@@ -164,7 +158,7 @@ func (it *Interactor) enrichEvent(event domain.DomainEvent) OutboxEvent {
 		// No additional fields
 	}
 
-	return OutboxEvent{
+	return contracts.OutboxEvent{
 		EventID:     uuid.New().String(),
 		EventType:   event.EventType(),
 		AggregateID: event.AggregateID(),

@@ -2,28 +2,37 @@ package committer
 
 import (
 	"context"
+	"fmt"
 
 	"cloud.google.com/go/spanner"
-	commitplan "github.com/Vektor-AI/commitplan"
-	commitplanSpanner "github.com/Vektor-AI/commitplan/drivers/spanner"
+	"product-catalog-service/internal/pkg/commitplan"
 )
 
-// Committer applies commit plans
+// Committer applies commit plans atomically
 type Committer struct {
-	driver *commitplanSpanner.Driver
+	client *spanner.Client
 }
 
-// NewCommitter creates a new committer with Spanner driver
+// NewCommitter creates a new committer for Spanner
 func NewCommitter(client *spanner.Client) *Committer {
-	driver := commitplanSpanner.NewDriver(client)
-
 	return &Committer{
-		driver: driver,
+		client: client,
 	}
 }
 
 // Apply applies a commit plan atomically
 func (c *Committer) Apply(ctx context.Context, plan *commitplan.Plan) error {
-	// Convert our plan to the actual commitplan type and apply
-	return c.driver.Apply(ctx, plan)
+	mutations := plan.Mutations()
+
+	if len(mutations) == 0 {
+		return nil
+	}
+
+	// Apply all mutations atomically in a single transaction
+	_, err := c.client.Apply(ctx, mutations)
+	if err != nil {
+		return fmt.Errorf("failed to apply commit plan: %w", err)
+	}
+
+	return nil
 }

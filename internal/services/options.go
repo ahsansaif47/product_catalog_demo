@@ -5,17 +5,18 @@ import (
 
 	"cloud.google.com/go/spanner"
 	"github.com/google/uuid"
-	"product-catalog-service/internal/app/product/activate_product"
-	"product-catalog-service/internal/app/product/apply_discount"
-	"product-catalog-service/internal/app/product/archive_product"
-	"product-catalog-service/internal/app/product/create_product"
-	"product-catalog-service/internal/app/product/deactivate_product"
+	"product-catalog-service/internal/app/product/contracts"
 	"product-catalog-service/internal/app/product/domain"
-	"product-catalog-service/internal/app/product/get_product"
-	"product-catalog-service/internal/app/product/list_products"
-	"product-catalog-service/internal/app/product/remove_discount"
+	"product-catalog-service/internal/app/product/queries/get_product"
+	"product-catalog-service/internal/app/product/queries/list_products"
 	"product-catalog-service/internal/app/product/repo"
-	"product-catalog-service/internal/app/product/update_product"
+	"product-catalog-service/internal/app/product/usecases/activate_product"
+	"product-catalog-service/internal/app/product/usecases/apply_discount"
+	"product-catalog-service/internal/app/product/usecases/archive_product"
+	"product-catalog-service/internal/app/product/usecases/create_product"
+	"product-catalog-service/internal/app/product/usecases/deactivate_product"
+	"product-catalog-service/internal/app/product/usecases/remove_discount"
+	"product-catalog-service/internal/app/product/usecases/update_product"
 	"product-catalog-service/internal/pkg/clock"
 	"product-catalog-service/internal/pkg/committer"
 	"product-catalog-service/internal/transport/grpc/product"
@@ -178,7 +179,7 @@ func NewEventEnricher() *EventEnricher {
 }
 
 // EnrichEvent enriches a domain event with metadata
-func (e *EventEnricher) EnrichEvent(domainEvent interface{}) create_product.OutboxEvent {
+func (e *EventEnricher) EnrichEvent(domainEvent domain.DomainEvent) contracts.OutboxEvent {
 	// Extract domain event information
 	var (
 		aggregateID string
@@ -216,7 +217,7 @@ func (e *EventEnricher) EnrichEvent(domainEvent interface{}) create_product.Outb
 		eventType = ev.EventType()
 		occurredAt = ev.OccurredAt()
 	default:
-		return create_product.OutboxEvent{}
+		return contracts.OutboxEvent{}
 	}
 
 	payload := map[string]interface{}{
@@ -225,7 +226,7 @@ func (e *EventEnricher) EnrichEvent(domainEvent interface{}) create_product.Outb
 		"occurred_at":  occurredAt.Unix(),
 	}
 
-	return create_product.OutboxEvent{
+	return contracts.OutboxEvent{
 		EventID:     uuid.New().String(),
 		EventType:   eventType,
 		AggregateID: aggregateID,

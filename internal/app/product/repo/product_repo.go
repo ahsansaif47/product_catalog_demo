@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"google.golang.org/grpc/codes"
 	"product-catalog-service/internal/app/product/contracts"
 	"product-catalog-service/internal/app/product/domain"
 	"product-catalog-service/internal/models/m_outbox"
@@ -31,12 +32,7 @@ func NewProductRepo(client *spanner.Client) *ProductRepo {
 func (r *ProductRepo) InsertMut(product *domain.Product) *spanner.Mutation {
 	p := r.domainToModel(product)
 
-	mutation, err := spanner.InsertOrUpdateMap(m_product.Table, p.ToMap())
-	if err != nil {
-		// This should never happen with valid data
-		return nil
-	}
-
+	mutation := spanner.InsertOrUpdateMap(m_product.Table, p.ToMap())
 	return mutation
 }
 
@@ -87,11 +83,7 @@ func (r *ProductRepo) UpdateMut(product *domain.Product) *spanner.Mutation {
 		return nil // No changes to apply
 	}
 
-	mutation, err := spanner.UpdateMap(m_product.Table, updates)
-	if err != nil {
-		return nil
-	}
-
+	mutation := spanner.UpdateMap(m_product.Table, updates)
 	return mutation
 }
 
@@ -121,10 +113,11 @@ func (r *ProductRepo) FindByID(ctx spannerContext, productID string) (*domain.Pr
 		},
 	)
 
-	if err == spanner.ErrRowNotFound {
-		return nil, domain.ErrProductNotFound
-	}
 	if err != nil {
+		// Check for not found error
+		if spanner.ErrCode(err) == codes.NotFound {
+			return nil, domain.ErrProductNotFound
+		}
 		return nil, fmt.Errorf("failed to read product: %w", err)
 	}
 
@@ -167,10 +160,11 @@ func (r *ProductRepo) Exists(ctx spannerContext, productID string) (bool, error)
 	defer txn.Close()
 
 	_, err := txn.ReadRow(ctx, m_product.Table, spanner.Key{productID}, []string{m_product.ProductID})
-	if err == spanner.ErrRowNotFound {
-		return false, nil
-	}
 	if err != nil {
+		// Check for not found error
+		if spanner.ErrCode(err) == codes.NotFound {
+			return false, nil
+		}
 		return false, fmt.Errorf("failed to check product existence: %w", err)
 	}
 
@@ -206,11 +200,7 @@ func (r *OutboxRepo) InsertMut(event contracts.OutboxEvent) *spanner.Mutation {
 		ProcessedAt: nil,
 	}
 
-	mutation, err := spanner.InsertOrUpdateMap(m_outbox.Table, outboxEvent.ToMap())
-	if err != nil {
-		return nil
-	}
-
+	mutation := spanner.InsertOrUpdateMap(m_outbox.Table, outboxEvent.ToMap())
 	return mutation
 }
 
